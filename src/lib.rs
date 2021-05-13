@@ -26,26 +26,33 @@ impl<T> RawVec<T> {
         let cap = if mem::size_of::<T>() == 0 { !0 } else { 0 };
 
         // Unique::dangling() doubles as "unallocated" and "zero-sized allocation"
-        RawVec { ptr: Unique::dangling(), cap: cap }
+        RawVec { 
+            ptr: Unique::dangling(), 
+            cap: cap
+        }
     }
 
     fn grow(&mut self) {
         unsafe {
             let elem_size = mem::size_of::<T>();
 
-            // since we set the capacity to usize::MAX when elem_size is
-            // 0, getting to here necessarily means the Vec is overfull.
+            // Since we set the capacity to usize::MAX when elem_size is
+            // 0, getting to here necessarily means the Vec is overfilled.
             assert!(elem_size != 0, "capacity overflow");
 
             let (new_cap, ptr) = if self.cap == 0 {
                 let ptr = Global.allocate(Layout::array::<T>(1).unwrap());
+                
                 (1, ptr)
             } else {
                 let new_cap = 2 * self.cap;
                 let c: NonNull<T> = self.ptr.into();
-                let ptr = Global.grow(c.cast(),
-                                      Layout::array::<T>(self.cap).unwrap(),
-                                      Layout::array::<T>(new_cap).unwrap());
+                let ptr = Global.grow(
+                    c.cast(),
+                    Layout::array::<T>(self.cap).unwrap(),
+                    Layout::array::<T>(new_cap).unwrap()
+                );
+
                 (new_cap, ptr)
             };
 
@@ -70,8 +77,10 @@ impl<T> Drop for RawVec<T> {
         if self.cap != 0 && elem_size != 0 {
             unsafe {
                 let c: NonNull<T> = self.ptr.into();
-                Global.deallocate(c.cast(),
-                               Layout::array::<T>(self.cap).unwrap());
+                Global.deallocate(
+                    c.cast(),
+                    Layout::array::<T>(self.cap).unwrap()
+                );
             }
         }
     }
@@ -83,21 +92,30 @@ pub struct Vec<T> {
 }
 
 impl<T> Vec<T> {
-    fn ptr(&self) -> *mut T { self.buf.ptr.as_ptr() }
+    fn ptr(&self) -> *mut T { 
+        self.buf.ptr.as_ptr() 
+    }
 
-    fn cap(&self) -> usize { self.buf.cap }
+    fn cap(&self) -> usize { 
+        self.buf.cap 
+    }
 
     pub fn new() -> Self {
-        Vec { buf: RawVec::new(), len: 0 }
+        Vec { 
+            buf: RawVec::new(), 
+            len: 0 
+        }
     }
     pub fn push(&mut self, elem: T) {
-        if self.len == self.cap() { self.buf.grow(); }
+        if self.len == self.cap() { 
+            self.buf.grow(); 
+        }
 
         unsafe {
             ptr::write(self.ptr().offset(self.len as isize), elem);
         }
 
-        // Can't fail, we'll OOM first.
+        // This cannot fail, we'll trigger OOM first.
         self.len += 1;
     }
 
@@ -118,9 +136,11 @@ impl<T> Vec<T> {
 
         unsafe {
             if index < self.len {
-                ptr::copy(self.ptr().offset(index as isize),
-                          self.ptr().offset(index as isize + 1),
-                          self.len - index);
+                ptr::copy(
+                    self.ptr().offset(index as isize),      
+                    self.ptr().offset(index as isize + 1),
+                    self.len - index
+                );
             }
             ptr::write(self.ptr().offset(index as isize), elem);
             self.len += 1;
@@ -132,9 +152,12 @@ impl<T> Vec<T> {
         unsafe {
             self.len -= 1;
             let result = ptr::read(self.ptr().offset(index as isize));
-            ptr::copy(self.ptr().offset(index as isize + 1),
-                      self.ptr().offset(index as isize),
-                      self.len - index);
+            ptr::copy(
+                self.ptr().offset(index as isize + 1),
+                self.ptr().offset(index as isize),
+                self.len - index
+            );
+
             result
         }
     }
@@ -156,7 +179,7 @@ impl<T> Vec<T> {
         unsafe {
             let iter = RawValIter::new(&self);
 
-            // this is a mem::forget safety thing. If Drain is forgotten, we just
+            // This is a mem::forget safety thing. If Drain is forgotten, we just
             // leak the whole Vec's contents. Also we need to do this *eventually*
             // anyway, so why not do it now?
             self.len = 0;
@@ -171,8 +194,8 @@ impl<T> Vec<T> {
 
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
+        // Deallocation is handled by RawVec.
         while let Some(_) = self.pop() {}
-        // deallocation is handled by RawVec
     }
 }
 
@@ -226,6 +249,7 @@ impl<T> Iterator for RawValIter<T> {
                 } else {
                     self.start.offset(1)
                 };
+
                 Some(result)
             }
         }
@@ -235,6 +259,7 @@ impl<T> Iterator for RawValIter<T> {
         let elem_size = mem::size_of::<T>();
         let len = (self.end as usize - self.start as usize)
                   / if elem_size == 0 { 1 } else { elem_size };
+
         (len, Some(len))
     }
 }
@@ -264,11 +289,15 @@ pub struct IntoIter<T> {
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
     fn next(&mut self) -> Option<T> { self.iter.next() }
-    fn size_hint(&self) -> (usize, Option<usize>) { self.iter.size_hint() }
+    fn size_hint(&self) -> (usize, Option<usize>) { 
+        self.iter.size_hint() 
+    }
 }
 
 impl<T> DoubleEndedIterator for IntoIter<T> {
-    fn next_back(&mut self) -> Option<T> { self.iter.next_back() }
+    fn next_back(&mut self) -> Option<T> { 
+        self.iter.next_back() 
+    }
 }
 
 impl<T> Drop for IntoIter<T> {
@@ -294,7 +323,7 @@ impl<'a, T> DoubleEndedIterator for Drain<'a, T> {
 
 impl<'a, T> Drop for Drain<'a, T> {
     fn drop(&mut self) {
-        // pre-drain the iter
+        // Pre-drain the iterator.
         for _ in &mut *self {}
     }
 }
@@ -307,17 +336,22 @@ mod tests {
     fn test_create_push_pop() {
         let mut v = Vec::new();
         v.push(1);
+
         assert_eq!(1, v.len());
         assert_eq!(1, v[0]);
+
         for i in v.iter_mut() {
             *i += 1;
         }
         v.insert(0, 5);
         let x = v.pop();
+
         assert_eq!(Some(2), x);
         assert_eq!(1, v.len());
+
         v.push(10);
         let x = v.remove(0);
+
         assert_eq!(5, x);
         assert_eq!(1, v.len());
     }
@@ -328,10 +362,12 @@ mod tests {
         for i in 0..10 {
             v.push(Box::new(i))
         }
+
         let mut iter = v.into_iter();
         let first = iter.next().unwrap();
         let last = iter.next_back().unwrap();
         drop(iter);
+
         assert_eq!(0, *first);
         assert_eq!(9, *last);
     }
@@ -346,11 +382,15 @@ mod tests {
             let mut drain = v.drain();
             let first = drain.next().unwrap();
             let last = drain.next_back().unwrap();
+
             assert_eq!(0, *first);
             assert_eq!(9, *last);
         }
+
         assert_eq!(0, v.len());
+
         v.push(Box::new(1));
+
         assert_eq!(1, *v.pop().unwrap());
     }
 
