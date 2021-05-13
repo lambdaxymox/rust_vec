@@ -115,6 +115,10 @@ impl<T> Vec<T> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     pub fn push(&mut self, elem: T) {
         if self.len == self.capacity() { 
             self.buf.grow(); 
