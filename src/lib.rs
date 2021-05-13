@@ -321,9 +321,8 @@ impl<'a, T> Iterator for Iter<'a, T> {
 
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
-            // We can grab the reference since we know that ptr is non-null.
             let ptr = self.ptr.as_ptr();
-            if (ptr as *const T) <= self.end {
+            if (ptr as *const T) < self.end {
                 let new_ptr = ptr.add(1);
                 self.ptr = NonNull::new_unchecked(new_ptr);
 
@@ -478,6 +477,23 @@ mod tests {
     }
 
     #[test]
+    fn test_pushing_multiple_elements_and_popping_all_of_them_should_empty_vec() {
+        let mut vec = Vec::new();
+        let length = 100;
+        for elem in 0..length {
+            vec.push(elem);
+        }
+
+        assert!(!vec.is_empty());
+
+        for _ in 0..length {
+            vec.pop();
+        }
+
+        assert!(vec.is_empty());
+    }
+
+    #[test]
     fn test_into_iter() {
         let mut v = Vec::new();
         for i in 0..10 {
@@ -528,18 +544,12 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_iter() {
-        let mut vec = Vec::new();
-        let length = 10;
-        for elem in 0..length {
-            vec.push(elem);
-        }
-
+    fn test_empty_iterator_should_always_return_none() {
+        let vec: Vec<isize> = Vec::new();
         let mut it = vec.iter();
-        for expected in 0..length {
+        for _ in 0..100 {
             let result = it.next();
-            
-            assert_eq!(result, Some(&expected));
+            assert!(result.is_none());
         }
     }
 
