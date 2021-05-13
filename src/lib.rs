@@ -99,7 +99,7 @@ impl<T> Vec<T> {
         }
     }
 
-    fn ptr(&self) -> *mut T { 
+    fn as_mut_ptr(&self) -> *mut T { 
         self.buf.ptr.as_ptr() 
     }
 
@@ -117,7 +117,7 @@ impl<T> Vec<T> {
         }
 
         unsafe {
-            ptr::write(self.ptr().offset(self.len as isize), elem);
+            ptr::write(self.as_mut_ptr().offset(self.len as isize), elem);
         }
 
         // This cannot fail, we'll trigger OOM first.
@@ -130,7 +130,7 @@ impl<T> Vec<T> {
         } else {
             self.len -= 1;
             unsafe {
-                Some(ptr::read(self.ptr().offset(self.len as isize)))
+                Some(ptr::read(self.as_mut_ptr().offset(self.len as isize)))
             }
         }
     }
@@ -142,12 +142,12 @@ impl<T> Vec<T> {
         unsafe {
             if index < self.len {
                 ptr::copy(
-                    self.ptr().offset(index as isize),      
-                    self.ptr().offset(index as isize + 1),
+                    self.as_mut_ptr().offset(index as isize),      
+                    self.as_mut_ptr().offset(index as isize + 1),
                     self.len - index
                 );
             }
-            ptr::write(self.ptr().offset(index as isize), elem);
+            ptr::write(self.as_mut_ptr().offset(index as isize), elem);
             self.len += 1;
         }
     }
@@ -156,10 +156,10 @@ impl<T> Vec<T> {
         assert!(index < self.len, "index out of bounds");
         unsafe {
             self.len -= 1;
-            let result = ptr::read(self.ptr().offset(index as isize));
+            let result = ptr::read(self.as_mut_ptr().offset(index as isize));
             ptr::copy(
-                self.ptr().offset(index as isize + 1),
-                self.ptr().offset(index as isize),
+                self.as_mut_ptr().offset(index as isize + 1),
+                self.as_mut_ptr().offset(index as isize),
                 self.len - index
             );
 
@@ -208,7 +208,7 @@ impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         unsafe {
-            std::slice::from_raw_parts(self.ptr(), self.len)
+            std::slice::from_raw_parts(self.as_mut_ptr(), self.len)
         }
     }
 }
@@ -216,7 +216,7 @@ impl<T> Deref for Vec<T> {
 impl<T> DerefMut for Vec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe {
-            std::slice::from_raw_parts_mut(self.ptr(), self.len)
+            std::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len)
         }
     }
 }
