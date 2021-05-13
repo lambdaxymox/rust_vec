@@ -107,6 +107,14 @@ impl<T> Vec<T> {
         self.buf.ptr.as_ptr() as *const T
     }
 
+    pub fn as_slice(&self) -> &[T] {
+        self
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        self
+    }
+
     pub fn capacity(&self) -> usize { 
         self.buf.capacity
     }
@@ -142,7 +150,7 @@ impl<T> Vec<T> {
             }
         }
     }
-
+ 
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "index out of bounds");
         if self.capacity() == self.len { self.buf.grow(); }
@@ -173,6 +181,21 @@ impl<T> Vec<T> {
 
             result
         }
+    }
+
+    pub fn contains(&self, x: &T) -> bool 
+    where 
+        T: PartialEq
+    {
+        /*
+        for item in self.into_iter() {
+            if x == item {
+                return true;
+            }
+        }
+        */
+
+        false
     }
 
     pub fn into_iter(self) -> IntoIter<T> {
@@ -281,6 +304,7 @@ impl<T> RawValIter<T> {
 
 impl<T> Iterator for RawValIter<T> {
     type Item = T;
+
     fn next(&mut self) -> Option<T> {
         if self.start == self.end {
             None
@@ -370,6 +394,7 @@ impl<'a, T> Drop for Drain<'a, T> {
         for _ in &mut *self {}
     }
 }
+
 
 #[cfg(test)]
 mod tests {
