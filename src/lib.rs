@@ -17,18 +17,18 @@ use std::alloc::{
 
 struct RawVec<T> {
     ptr: Unique<T>,
-    cap: usize,
+    capacity: usize,
 }
 
 impl<T> RawVec<T> {
     fn new() -> Self {
         // !0 is usize::MAX. This branch should be stripped at compile time.
-        let cap = if mem::size_of::<T>() == 0 { !0 } else { 0 };
+        let capacity = if mem::size_of::<T>() == 0 { !0 } else { 0 };
 
         // Unique::dangling() doubles as "unallocated" and "zero-sized allocation"
         RawVec { 
             ptr: Unique::dangling(), 
-            cap: cap
+            capacity
         }
     }
 
@@ -40,33 +40,33 @@ impl<T> RawVec<T> {
             // 0, getting to here necessarily means the Vec is overfilled.
             assert!(elem_size != 0, "capacity overflow");
 
-            let (new_cap, ptr) = if self.cap == 0 {
+            let (new_capacity, ptr) = if self.capacity == 0 {
                 let ptr = Global.allocate(Layout::array::<T>(1).unwrap());
                 
                 (1, ptr)
             } else {
-                let new_cap = 2 * self.cap;
+                let new_capacity = 2 * self.capacity;
                 let c: NonNull<T> = self.ptr.into();
                 let ptr = Global.grow(
                     c.cast(),
-                    Layout::array::<T>(self.cap).unwrap(),
-                    Layout::array::<T>(new_cap).unwrap()
+                    Layout::array::<T>(self.capacity).unwrap(),
+                    Layout::array::<T>(new_capacity).unwrap()
                 );
 
-                (new_cap, ptr)
+                (new_capacity, ptr)
             };
 
             // If allocate or reallocate fail, oom
             if ptr.is_err() {
                 handle_alloc_error(Layout::from_size_align_unchecked(
-                    new_cap * elem_size,
+                    new_capacity * elem_size,
                     mem::align_of::<T>(),
                 ))
             }
             let ptr = ptr.unwrap();
 
             self.ptr = Unique::new_unchecked(ptr.as_ptr() as *mut _);
-            self.cap = new_cap;
+            self.capacity = new_capacity;
         }
     }
 }
@@ -74,12 +74,12 @@ impl<T> RawVec<T> {
 impl<T> Drop for RawVec<T> {
     fn drop(&mut self) {
         let elem_size = mem::size_of::<T>();
-        if self.cap != 0 && elem_size != 0 {
+        if self.capacity != 0 && elem_size != 0 {
             unsafe {
                 let c: NonNull<T> = self.ptr.into();
                 Global.deallocate(
                     c.cast(),
-                    Layout::array::<T>(self.cap).unwrap()
+                    Layout::array::<T>(self.capacity).unwrap()
                 );
             }
         }
@@ -92,22 +92,27 @@ pub struct Vec<T> {
 }
 
 impl<T> Vec<T> {
-    fn ptr(&self) -> *mut T { 
-        self.buf.ptr.as_ptr() 
-    }
-
-    fn cap(&self) -> usize { 
-        self.buf.cap 
-    }
-
-    pub fn new() -> Self {
+    pub fn new() -> Vec<T> {
         Vec { 
             buf: RawVec::new(), 
             len: 0 
         }
     }
+
+    fn ptr(&self) -> *mut T { 
+        self.buf.ptr.as_ptr() 
+    }
+
+    pub fn capacity(&self) -> usize { 
+        self.buf.capacity
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
     pub fn push(&mut self, elem: T) {
-        if self.len == self.cap() { 
+        if self.len == self.capacity() { 
             self.buf.grow(); 
         }
 
@@ -132,7 +137,7 @@ impl<T> Vec<T> {
 
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "index out of bounds");
-        if self.cap() == self.len { self.buf.grow(); }
+        if self.capacity() == self.len { self.buf.grow(); }
 
         unsafe {
             if index < self.len {
