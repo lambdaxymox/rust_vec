@@ -381,7 +381,11 @@ impl<'a, T> Iterator for Iter<'a, T> {
         unsafe {
             let ptr = self.ptr.as_ptr();
             if (ptr as *const T) < self.end {
-                let new_ptr = ptr.add(1);
+                let new_ptr = if mem::size_of::<T>() == 0 {
+                    (ptr as *const u8).wrapping_add(1) as *mut T
+                } else {
+                    ptr.add(1)
+                };
                 self.ptr = NonNull::new_unchecked(new_ptr);
 
                 Some(&*(ptr as *const T))
@@ -669,6 +673,22 @@ mod tests {
 
         let mut count = 0;
         for _ in vec.into_iter() {
+            count += 1;
+        }
+
+        assert_eq!(length, count);
+    }
+
+    #[test]
+    fn test_zero_sized_type_iter() {
+        let mut vec = Vec::new();
+        let length = 10;
+        for _i in 0..length {
+            vec.push(());
+        }
+
+        let mut count = 0;
+        for _ in vec.iter() {
             count += 1;
         }
 
