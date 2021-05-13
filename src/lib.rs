@@ -99,8 +99,12 @@ impl<T> Vec<T> {
         }
     }
 
-    pub fn as_mut_ptr(&self) -> *mut T { 
+    pub fn as_mut_ptr(&mut self) -> *mut T { 
         self.buf.ptr.as_ptr() 
+    }
+
+    pub fn as_ptr(&self) -> *const T {
+        self.buf.ptr.as_ptr() as *const T
     }
 
     pub fn capacity(&self) -> usize { 
@@ -208,7 +212,7 @@ impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         unsafe {
-            std::slice::from_raw_parts(self.as_mut_ptr(), self.len)
+            std::slice::from_raw_parts(self.as_ptr(), self.len)
         }
     }
 }
