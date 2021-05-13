@@ -99,7 +99,7 @@ impl<T> Vec<T> {
         }
     }
 
-    fn as_mut_ptr(&self) -> *mut T { 
+    pub fn as_mut_ptr(&self) -> *mut T { 
         self.buf.ptr.as_ptr() 
     }
 
