@@ -2,16 +2,25 @@
 #![feature(allocator_api)]
 #![feature(alloc_layout_extra)]
 
-use std::ptr::{Unique, NonNull, self};
+use std::ptr::{
+    Unique, 
+    NonNull,
+    self,
+};
 use std::mem;
-use std::ops::{Deref, DerefMut};
-use std::marker::PhantomData;
+use std::ops::{
+    Deref, 
+    DerefMut,
+};
+use std::marker::{
+    PhantomData,
+};
 use std::alloc::{
     Allocator,
     Global,
     GlobalAlloc,
     Layout,
-    handle_alloc_error
+    handle_alloc_error,
 };
 
 
@@ -157,7 +166,9 @@ impl<T> Vec<T> {
  
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "index out of bounds");
-        if self.capacity() == self.len { self.buf.grow(); }
+        if self.capacity() == self.len { 
+            self.buf.grow(); 
+        }
 
         unsafe {
             if index < self.len {
@@ -185,6 +196,10 @@ impl<T> Vec<T> {
 
             result
         }
+    }
+
+    pub fn iter(&self) -> Iter<'_, T> {
+        Iter::new(self)
     }
 
     pub fn into_iter(self) -> IntoIter<T> {
@@ -269,6 +284,55 @@ impl<T> Default for Vec<T> {
     fn default() -> Vec<T> {
         Vec::new()
     }
+}
+
+pub struct Iter<'a, T>{
+    ptr: NonNull<T>,
+    end: *const T,
+    _marker: PhantomData<&'a T>,
+}
+
+unsafe impl<T: Sync> Sync for Iter<'_, T> {}
+unsafe impl<T: Sync> Send for Iter<'_, T> {}
+
+impl<'a, T> Iter<'a, T> {
+    #[inline]
+    fn new(slice: &'a [T]) -> Self {
+        let ptr = slice.as_ptr();
+        unsafe {
+            assert!(!ptr.is_null());
+            let end = if mem::size_of::<T>() == 0 {
+                (ptr as *const u8).wrapping_add(slice.len()) as *const T
+            } else {
+                ptr.add(slice.len())
+            };
+
+            Self { 
+                ptr: NonNull::new_unchecked(ptr as *mut T), 
+                end,
+                _marker: PhantomData, 
+            }
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            // We can grab the reference since we know that ptr is non-null.
+            let ptr = self.ptr.as_ptr();
+            if (ptr as *const T) <= self.end {
+                let new_ptr = ptr.add(1);
+                self.ptr = NonNull::new_unchecked(new_ptr);
+
+                Some(&*(ptr as *const T))
+            } else {
+                None
+            }
+        }
+    } 
 }
 
 struct RawValIter<T> {
@@ -414,7 +478,7 @@ mod tests {
     }
 
     #[test]
-    fn test_iter() {
+    fn test_into_iter() {
         let mut v = Vec::new();
         for i in 0..10 {
             v.push(Box::new(i))
@@ -427,6 +491,56 @@ mod tests {
 
         assert_eq!(0, *first);
         assert_eq!(9, *last);
+    }
+
+    #[test]
+    fn test_len() {
+        let mut v = Vec::new();
+        let length = 10;
+        for i in 0..length {
+            v.push(i);
+        }
+
+        assert_eq!(v.len(), length);
+    }
+
+    #[test]
+    fn test_is_empty_no_elements() {
+        let vec: Vec<isize> = Vec::new();
+
+        assert!(vec.is_empty());
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut vec = Vec::new();
+        let length = 10;
+        for elem in 0..length {
+            vec.push(elem);
+        }
+
+        let mut it = vec.iter();
+        for expected in 0..length {
+            let result = it.next();
+            
+            assert_eq!(result, Some(&expected));
+        }
+    }
+
+    #[test]
+    fn test_empty_iter() {
+        let mut vec = Vec::new();
+        let length = 10;
+        for elem in 0..length {
+            vec.push(elem);
+        }
+
+        let mut it = vec.iter();
+        for expected in 0..length {
+            let result = it.next();
+            
+            assert_eq!(result, Some(&expected));
+        }
     }
 
     #[test]
