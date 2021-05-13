@@ -202,19 +202,6 @@ impl<T> Vec<T> {
         Iter::new(self)
     }
 
-    pub fn into_iter(self) -> IntoIter<T> {
-        unsafe {
-            let iter = RawValIter::new(&self);
-            let buf = ptr::read(&self.buf);
-            mem::forget(self);
-
-            IntoIter {
-                iter: iter,
-                _buf: buf,
-            }
-        }
-    }
-
     pub fn drain(&mut self) -> Drain<T> {
         unsafe {
             let iter = RawValIter::new(&self);
@@ -401,13 +388,18 @@ impl<T> DoubleEndedIterator for RawValIter<T> {
 }
 
 pub struct IntoIter<T> {
-    _buf: RawVec<T>, // we don't actually care about this. Just need it to live.
+    // we don't actually care about this. We just need it to live.
+    _buf: RawVec<T>,
     iter: RawValIter<T>,
 }
 
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
-    fn next(&mut self) -> Option<T> { self.iter.next() }
+
+    fn next(&mut self) -> Option<T> { 
+        self.iter.next() 
+    }
+
     fn size_hint(&self) -> (usize, Option<usize>) { 
         self.iter.size_hint() 
     }
@@ -424,6 +416,26 @@ impl<T> Drop for IntoIter<T> {
         for _ in &mut *self {}
     }
 }
+
+impl<T> IntoIterator for Vec<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    #[inline]
+    fn into_iter(self) -> IntoIter<T> {
+        unsafe {
+            let iter = RawValIter::new(&self);
+            let buf = ptr::read(&self.buf);
+            mem::forget(self);
+    
+            IntoIter {
+                _buf: buf,
+                iter: iter,
+            }
+        }
+    }
+}
+
 
 pub struct Drain<'a, T: 'a> {
     vec: PhantomData<&'a mut Vec<T>>,
