@@ -107,18 +107,22 @@ impl<T> Vec<T> {
         self.buf.ptr.as_ptr() as *const T
     }
 
+    #[inline]
     pub fn as_slice(&self) -> &[T] {
         self
     }
 
+    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self
     }
 
+    #[inline]
     pub fn capacity(&self) -> usize { 
         self.buf.capacity
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -181,21 +185,6 @@ impl<T> Vec<T> {
 
             result
         }
-    }
-
-    pub fn contains(&self, x: &T) -> bool 
-    where 
-        T: PartialEq
-    {
-        /*
-        for item in self.into_iter() {
-            if x == item {
-                return true;
-            }
-        }
-        */
-
-        false
     }
 
     pub fn into_iter(self) -> IntoIter<T> {
