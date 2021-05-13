@@ -1,26 +1,31 @@
 #![feature(ptr_internals)]
 #![feature(allocator_api)]
 #![feature(alloc_layout_extra)]
-
-use std::ptr::{
-    Unique, 
-    NonNull,
-    self,
-};
-use std::mem;
-use std::ops::{
-    Deref, 
-    DerefMut,
-};
-use std::marker::{
-    PhantomData,
-};
 use std::alloc::{
     Allocator,
     Global,
     GlobalAlloc,
     Layout,
     handle_alloc_error,
+};
+use std::cmp::{
+    Ord,
+    Ordering,
+};
+use std::fmt;
+use std::marker::{
+    PhantomData,
+};
+use std::mem;
+use std::ops::{
+    Deref, 
+    DerefMut,
+    Index,
+};
+use std::ptr::{
+    Unique, 
+    NonNull,
+    self,
 };
 
 
@@ -267,9 +272,75 @@ impl<T> AsMut<Vec<T>> for Vec<T> {
     }
 }
 
+impl<T: fmt::Debug> fmt::Debug for Vec<T> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(&**self, formatter)
+    }
+}
+
+impl<T: Clone> Clone for Vec<T> {
+    fn clone(&self) -> Vec<T> {
+        let mut vec = Vec::new();
+        for item in self.iter() {
+            vec.push(item.clone());
+        }
+
+        vec
+    }
+}
+
 impl<T> Default for Vec<T> {
     fn default() -> Vec<T> {
         Vec::new()
+    }
+}
+
+impl<T> Index<usize> for Vec<T> {
+    type Output = T;
+
+    #[inline]
+    fn index(&self, index: usize) -> &T {
+        // Built-in indexing via the slice `&[T]`
+        &(**self)[index]
+    }
+}
+
+impl<A, B> PartialEq<Vec<A>> for Vec<B> where A: PartialEq<B> {
+    #[inline]
+    fn eq(&self, other: &Vec<A>) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+
+        if self.is_empty() {
+            // At this point we know that both vectors have the same length, so
+            // if one of them is empty, we know that the other one is empty.
+            return true;
+        }
+
+        for i in 0..self.len() {
+            if other[i] != self[i] {
+                return false;
+            } 
+        }
+
+        true
+    }
+}
+
+impl<T: Eq> Eq for Vec<T> {}
+
+impl<T: PartialOrd> PartialOrd for Vec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Vec<T>) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+}
+
+impl<T: Ord> Ord for Vec<T> {
+    #[inline]
+    fn cmp(&self, other: &Vec<T>) -> Ordering {
+        Ord::cmp(&**self, &**other)
     }
 }
 
@@ -464,6 +535,7 @@ impl<'a, T> Drop for Drain<'a, T> {
 mod tests {
     use super::*;
 
+
     #[test]
     fn test_create_push_pop() {
         let mut v = Vec::new();
@@ -524,7 +596,7 @@ mod tests {
     #[test]
     fn test_len() {
         let mut v = Vec::new();
-        let length = 10;
+        let length = 100;
         for i in 0..length {
             v.push(i);
         }
@@ -588,19 +660,32 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_sized_type() {
-        let mut v = Vec::new();
-        for _i in 0..10 {
-            v.push(())
+    fn test_zero_sized_type_into_iter() {
+        let mut vec = Vec::new();
+        let length = 10;
+        for _i in 0..length {
+            vec.push(());
         }
 
         let mut count = 0;
-
-        for _ in v.into_iter() {
-            count += 1
+        for _ in vec.into_iter() {
+            count += 1;
         }
 
-        assert_eq!(10, count);
+        assert_eq!(length, count);
+    }
+
+    #[test]
+    fn test_clone() {
+        let mut vec = Vec::new();
+        let length = 100;
+        for elem in 0..length {
+            vec.push(elem);
+        }
+
+        let cloned = vec.clone();
+
+        assert_eq!(vec, cloned);
     }
 }
 
