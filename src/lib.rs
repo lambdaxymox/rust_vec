@@ -39,7 +39,7 @@ impl<T> RawVec<T> {
         // !0 is usize::MAX. This branch should be stripped at compile time.
         let capacity = if mem::size_of::<T>() == 0 { !0 } else { 0 };
 
-        // Unique::dangling() doubles as "unallocated" and "zero-sized allocation"
+        // Unique::dangling() doubles as "unallocated" and "zero-sized allocation".
         RawVec { 
             ptr: Unique::dangling(), 
             capacity
@@ -83,6 +83,21 @@ impl<T> RawVec<T> {
             self.capacity = new_capacity;
         }
     }
+
+    #[inline]
+    fn as_ptr(&self) -> *const T {
+        self.ptr.as_ptr() as *const T
+    }
+
+    #[inline]
+    fn as_mut_ptr(&mut self) -> *mut T {
+        self.ptr.as_ptr()
+    }
+
+    #[inline]
+    fn capacity(&self) -> usize {
+        self.capacity
+    }
 }
 
 impl<T> Drop for RawVec<T> {
@@ -114,11 +129,11 @@ impl<T> Vec<T> {
     }
 
     pub fn as_mut_ptr(&mut self) -> *mut T { 
-        self.buf.ptr.as_ptr() 
+        self.buf.as_mut_ptr() 
     }
 
     pub fn as_ptr(&self) -> *const T {
-        self.buf.ptr.as_ptr() as *const T
+        self.buf.as_ptr()
     }
 
     #[inline]
@@ -133,7 +148,7 @@ impl<T> Vec<T> {
 
     #[inline]
     pub fn capacity(&self) -> usize { 
-        self.buf.capacity
+        self.buf.capacity()
     }
 
     #[inline]
@@ -200,6 +215,16 @@ impl<T> Vec<T> {
             );
 
             result
+        }
+    }
+
+    pub fn truncate(&mut self, len: usize) {
+        unsafe {
+            while len < self.len {
+                self.len -= 1;
+                let len = self.len;
+                ptr::drop_in_place(self.get_unchecked_mut(len));
+            }
         }
     }
 
