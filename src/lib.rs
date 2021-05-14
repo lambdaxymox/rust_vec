@@ -737,5 +737,20 @@ mod tests {
 
         assert_eq!(vec, cloned);
     }
+
+    #[test]
+    fn test_clear() {
+        let mut vec = Vec::new();
+        let length = 100;
+        for elem in 0..length {
+            vec.push(elem);
+        }
+
+        assert!(!vec.is_empty());
+
+        vec.clear();
+
+        assert!(vec.is_empty());
+    }
 }
 
