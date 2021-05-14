@@ -228,6 +228,11 @@ impl<T> Vec<T> {
         }
     }
 
+    #[inline]
+    pub fn clear(&mut self) {
+        self.truncate(0)
+    }
+
     pub fn iter(&self) -> Iter<'_, T> {
         Iter::new(self)
     }
